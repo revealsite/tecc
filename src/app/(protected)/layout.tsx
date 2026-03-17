@@ -1,0 +1,25 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { AdminSidebar } from "@/components/layout/admin-sidebar";
+
+export default async function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      <AdminSidebar />
+      <main className="flex-1 bg-light-gray">
+        <div className="p-6 lg:p-8">{children}</div>
+      </main>
+    </div>
+  );
+}

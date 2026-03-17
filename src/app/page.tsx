@@ -1,65 +1,79 @@
-import Image from "next/image";
+import { Suspense } from "react";
+import { createClient } from "@/lib/supabase/server";
+import { Header } from "@/components/layout/header";
+import { Footer } from "@/components/layout/footer";
+import { NewsletterFilters } from "@/components/newsletters/newsletter-filters";
+import { NewsletterList } from "@/components/newsletters/newsletter-list";
+import type { Newsletter } from "@/lib/types";
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string; month?: string; search?: string }>;
+}) {
+  const params = await searchParams;
+  const supabase = await createClient();
+
+  // Build query
+  let query = supabase
+    .from("newsletters")
+    .select("*, newsletter_sections(*, section_links(*))")
+    .order("year", { ascending: false })
+    .order("month", { ascending: false });
+
+  if (params.year) {
+    query = query.eq("year", parseInt(params.year));
+  }
+  if (params.month) {
+    query = query.eq("month", parseInt(params.month));
+  }
+  if (params.search) {
+    query = query.ilike("title", `%${params.search}%`);
+  }
+
+  const { data: newsletters } = await query;
+
+  // Get distinct years for filter
+  const { data: yearRows } = await supabase
+    .from("newsletters")
+    .select("year")
+    .order("year", { ascending: false });
+
+  const availableYears = [...new Set(yearRows?.map((r) => r.year) ?? [])];
+
+  // Sort sections/links by sort_order
+  const sorted = ((newsletters as Newsletter[]) ?? []).map((nl) => ({
+    ...nl,
+    newsletter_sections: nl.newsletter_sections
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((s) => ({
+        ...s,
+        section_links: s.section_links.sort((a, b) => a.sort_order - b.sort_order),
+      })),
+  }));
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <main className="flex-1">
+        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-navy">Newsletter Archive</h1>
+            <p className="mt-1 text-medium-gray">
+              Browse newsletters from the Tobacco Education Clearinghouse of California
+            </p>
+          </div>
+
+          <div className="mb-6">
+            <Suspense fallback={null}>
+              <NewsletterFilters availableYears={availableYears} />
+            </Suspense>
+          </div>
+
+          <NewsletterList newsletters={sorted} />
         </div>
       </main>
+      <Footer />
     </div>
   );
 }
