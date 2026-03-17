@@ -23,6 +23,10 @@ export interface Newsletter {
   source_type: "url" | "file";
   source_url: string | null;
   file_path: string | null;
+  content_text: string | null;
+  overall_summary: string | null;
+  key_topics: string[] | null;
+  ai_processed: boolean;
   created_at: string;
   updated_at: string;
   newsletter_sections: NewsletterSection[];

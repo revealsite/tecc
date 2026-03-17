@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { MONTH_NAMES } from "@/lib/types";
 
 interface NewsletterFiltersProps {
@@ -11,10 +11,12 @@ interface NewsletterFiltersProps {
 export function NewsletterFilters({ availableYears }: NewsletterFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const currentYear = searchParams.get("year") ?? "";
   const currentMonth = searchParams.get("month") ?? "";
   const currentSearch = searchParams.get("search") ?? "";
+  const [searchInput, setSearchInput] = useState(currentSearch);
 
   const updateParams = useCallback(
     (key: string, value: string) => {
@@ -27,6 +29,17 @@ export function NewsletterFilters({ availableYears }: NewsletterFiltersProps) {
       router.push(`/?${params.toString()}`);
     },
     [router, searchParams]
+  );
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchInput(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        updateParams("search", value);
+      }, 400);
+    },
+    [updateParams]
   );
 
   return (
@@ -65,9 +78,9 @@ export function NewsletterFilters({ availableYears }: NewsletterFiltersProps) {
         <label className="block text-sm font-medium text-navy">Search</label>
         <input
           type="text"
-          value={currentSearch}
-          onChange={(e) => updateParams("search", e.target.value)}
-          placeholder="Search newsletters..."
+          value={searchInput}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="Search titles, content, topics..."
           className="w-full rounded-md border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-blue"
         />
       </div>

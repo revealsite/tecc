@@ -14,24 +14,50 @@ export default async function Home({
   const params = await searchParams;
   const supabase = await createClient();
 
-  // Build query
-  let query = supabase
-    .from("newsletters")
-    .select("*, newsletter_sections(*, section_links(*))")
-    .order("year", { ascending: false })
-    .order("month", { ascending: false });
+  let newsletters: Newsletter[] = [];
 
-  if (params.year) {
-    query = query.eq("year", parseInt(params.year));
-  }
-  if (params.month) {
-    query = query.eq("month", parseInt(params.month));
-  }
   if (params.search) {
-    query = query.ilike("title", `%${params.search}%`);
-  }
+    // Use the RPC function for full-text search across all fields
+    const { data: matchingIds } = await supabase.rpc("search_newsletters", {
+      search_term: params.search,
+    });
 
-  const { data: newsletters } = await query;
+    if (matchingIds && matchingIds.length > 0) {
+      let query = supabase
+        .from("newsletters")
+        .select("*, newsletter_sections(*, section_links(*))")
+        .in("id", matchingIds)
+        .order("year", { ascending: false })
+        .order("month", { ascending: false });
+
+      if (params.year) {
+        query = query.eq("year", parseInt(params.year));
+      }
+      if (params.month) {
+        query = query.eq("month", parseInt(params.month));
+      }
+
+      const { data } = await query;
+      newsletters = (data as Newsletter[]) ?? [];
+    }
+  } else {
+    // No search term — simple filter query
+    let query = supabase
+      .from("newsletters")
+      .select("*, newsletter_sections(*, section_links(*))")
+      .order("year", { ascending: false })
+      .order("month", { ascending: false });
+
+    if (params.year) {
+      query = query.eq("year", parseInt(params.year));
+    }
+    if (params.month) {
+      query = query.eq("month", parseInt(params.month));
+    }
+
+    const { data } = await query;
+    newsletters = (data as Newsletter[]) ?? [];
+  }
 
   // Get distinct years for filter
   const { data: yearRows } = await supabase
@@ -42,7 +68,7 @@ export default async function Home({
   const availableYears = [...new Set(yearRows?.map((r) => r.year) ?? [])];
 
   // Sort sections/links by sort_order
-  const sorted = ((newsletters as Newsletter[]) ?? []).map((nl) => ({
+  const sorted = newsletters.map((nl) => ({
     ...nl,
     newsletter_sections: nl.newsletter_sections
       .sort((a, b) => a.sort_order - b.sort_order)

@@ -45,12 +45,31 @@ export default async function SectionsPage({
           </div>
           <p className="text-sm text-medium-gray">
             Manage sections and links
+            {nl.ai_processed && (
+              <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                AI Generated
+              </span>
+            )}
           </p>
         </div>
         <Link href={`/admin/${nl.id}`}>
           <Button variant="secondary">Edit Details</Button>
         </Link>
       </div>
+
+      {nl.overall_summary && (
+        <Card className="p-4">
+          <h3 className="text-sm font-medium text-navy mb-1">AI Summary</h3>
+          <p className="text-sm text-medium-gray">{nl.overall_summary}</p>
+          {nl.key_topics && nl.key_topics.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {nl.key_topics.map((topic) => (
+                <Badge key={topic} variant="blue">{topic}</Badge>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       <SectionManager newsletter={nl} />
     </div>

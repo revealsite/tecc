@@ -14,6 +14,11 @@ create table if not exists newsletters (
   updated_at timestamptz default now()
 );
 
+-- Add after initial creation or via ALTER:
+-- alter table newsletters add column if not exists overall_summary text;
+-- alter table newsletters add column if not exists key_topics text[];
+-- alter table newsletters add column if not exists ai_processed boolean default false;
+
 create index if not exists idx_newsletters_year_month on newsletters (year desc, month desc);
 
 -- Newsletter sections table

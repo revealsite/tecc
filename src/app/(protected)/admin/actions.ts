@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { analyzeNewsletterUrl } from "@/lib/openai";
 
 export async function createNewsletter(formData: FormData) {
   const supabase = await createClient();
@@ -29,7 +30,58 @@ export async function createNewsletter(formData: FormData) {
     redirect(`/admin/new?error=${encodeURIComponent(error.message)}`);
   }
 
+  // If a URL was provided, run LLM analysis to auto-generate sections
+  if (source_type === "url" && source_url) {
+    try {
+      const analysis = await analyzeNewsletterUrl(source_url, title);
+
+      // Update newsletter with AI-generated metadata and content
+      await supabase
+        .from("newsletters")
+        .update({
+          overall_summary: analysis.overall_summary,
+          key_topics: analysis.key_topics,
+          content_text: analysis.content_text,
+          ai_processed: true,
+          title: title || analysis.suggested_title,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.id);
+
+      // Insert sections and links
+      for (let i = 0; i < analysis.sections.length; i++) {
+        const section = analysis.sections[i];
+
+        const { data: sectionData } = await supabase
+          .from("newsletter_sections")
+          .insert({
+            newsletter_id: data.id,
+            section_title: section.section_title,
+            summary: section.summary,
+            sort_order: i,
+          })
+          .select("id")
+          .single();
+
+        if (sectionData && section.links.length > 0) {
+          await supabase.from("section_links").insert(
+            section.links.map((link, j) => ({
+              section_id: sectionData.id,
+              label: link.label,
+              url: link.url,
+              sort_order: j,
+            }))
+          );
+        }
+      }
+    } catch (e) {
+      // LLM processing failed — newsletter is still created, admin can add sections manually
+      console.error("AI analysis failed:", e);
+    }
+  }
+
   revalidatePath("/admin");
+  revalidatePath("/");
   redirect(`/admin/${data.id}/sections`);
 }
 
