@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { analyzeNewsletterUrl } from "@/lib/openai";
+import { extractTextFromUrl } from "@/lib/extract-text";
 
 export async function createNewsletter(formData: FormData) {
   const supabase = await createClient();
@@ -30,53 +30,17 @@ export async function createNewsletter(formData: FormData) {
     redirect(`/admin/new?error=${encodeURIComponent(error.message)}`);
   }
 
-  // If a URL was provided, run LLM analysis to auto-generate sections
+  // Extract plain text from URL for search indexing (no AI needed)
   if (source_type === "url" && source_url) {
     try {
-      const analysis = await analyzeNewsletterUrl(source_url, title);
-
-      // Update newsletter with AI-generated metadata and content
+      const contentText = await extractTextFromUrl(source_url);
       await supabase
         .from("newsletters")
-        .update({
-          overall_summary: analysis.overall_summary,
-          key_topics: analysis.key_topics,
-          content_text: analysis.content_text,
-          ai_processed: true,
-          title: title || analysis.suggested_title,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ content_text: contentText, updated_at: new Date().toISOString() })
         .eq("id", data.id);
-
-      // Insert sections and links
-      for (let i = 0; i < analysis.sections.length; i++) {
-        const section = analysis.sections[i];
-
-        const { data: sectionData } = await supabase
-          .from("newsletter_sections")
-          .insert({
-            newsletter_id: data.id,
-            section_title: section.section_title,
-            summary: section.summary,
-            sort_order: i,
-          })
-          .select("id")
-          .single();
-
-        if (sectionData && section.links.length > 0) {
-          await supabase.from("section_links").insert(
-            section.links.map((link, j) => ({
-              section_id: sectionData.id,
-              label: link.label,
-              url: link.url,
-              sort_order: j,
-            }))
-          );
-        }
-      }
     } catch (e) {
-      // LLM processing failed — newsletter is still created, admin can add sections manually
-      console.error("AI analysis failed:", e);
+      // Text extraction failed — newsletter is still created, search just won't cover body text
+      console.error("Text extraction failed:", e);
     }
   }
 
@@ -285,6 +249,66 @@ export async function updateLink(
 
   revalidatePath(`/admin/${newsletter_id}/sections`);
   revalidatePath("/");
+}
+
+export async function reindexNewsletter(id: string) {
+  const supabase = await createClient();
+
+  const { data: newsletter } = await supabase
+    .from("newsletters")
+    .select("source_type, source_url")
+    .eq("id", id)
+    .single();
+
+  if (!newsletter?.source_url || newsletter.source_type !== "url") {
+    return { error: "Newsletter has no URL to index" };
+  }
+
+  try {
+    const contentText = await extractTextFromUrl(newsletter.source_url);
+    await supabase
+      .from("newsletters")
+      .update({ content_text: contentText, updated_at: new Date().toISOString() })
+      .eq("id", id);
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    return { error: `Text extraction failed: ${e}` };
+  }
+}
+
+export async function reindexAllNewsletters() {
+  const supabase = await createClient();
+
+  const { data: newsletters } = await supabase
+    .from("newsletters")
+    .select("id, source_type, source_url")
+    .eq("source_type", "url")
+    .not("source_url", "is", null);
+
+  if (!newsletters || newsletters.length === 0) {
+    return { error: "No URL-based newsletters found" };
+  }
+
+  let indexed = 0;
+  for (const nl of newsletters) {
+    try {
+      const contentText = await extractTextFromUrl(nl.source_url!);
+      await supabase
+        .from("newsletters")
+        .update({ content_text: contentText, updated_at: new Date().toISOString() })
+        .eq("id", nl.id);
+      indexed++;
+    } catch {
+      // Skip failures
+    }
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { success: true, indexed };
 }
 
 export async function deleteLink(id: string, newsletterId: string) {

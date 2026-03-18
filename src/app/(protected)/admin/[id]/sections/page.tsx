@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SectionManager } from "@/components/admin/section-manager";
+import { ReindexButton } from "@/components/admin/reindex-button";
 import { MONTH_NAMES } from "@/lib/types";
 import type { Newsletter } from "@/lib/types";
 
@@ -45,31 +45,15 @@ export default async function SectionsPage({
           </div>
           <p className="text-sm text-medium-gray">
             Manage sections and links
-            {nl.ai_processed && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                AI Generated
-              </span>
-            )}
           </p>
+          {nl.source_type === "url" && (
+            <ReindexButton newsletterId={nl.id} />
+          )}
         </div>
         <Link href={`/admin/${nl.id}`}>
           <Button variant="secondary">Edit Details</Button>
         </Link>
       </div>
-
-      {nl.overall_summary && (
-        <Card className="p-4">
-          <h3 className="text-sm font-medium text-navy mb-1">AI Summary</h3>
-          <p className="text-sm text-medium-gray">{nl.overall_summary}</p>
-          {nl.key_topics && nl.key_topics.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {nl.key_topics.map((topic) => (
-                <Badge key={topic} variant="blue">{topic}</Badge>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
 
       <SectionManager newsletter={nl} />
     </div>

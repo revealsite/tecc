@@ -81,8 +81,8 @@ export default async function Home({
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1">
-        <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="flex-1 bg-light-gray/30">
+        <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-navy">Newsletter Archive</h1>
             <p className="mt-1 text-medium-gray">
@@ -96,7 +96,16 @@ export default async function Home({
             </Suspense>
           </div>
 
-          <NewsletterList newsletters={sorted} />
+          {sorted.length > 0 && (
+            <p className="mb-4 text-sm text-medium-gray">
+              {sorted.length} newsletter{sorted.length !== 1 ? "s" : ""} found
+            </p>
+          )}
+
+          <NewsletterList
+            newsletters={sorted}
+            searchTerm={params.search}
+          />
         </div>
       </main>
       <Footer />

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 
 const navItems = [
@@ -16,9 +17,18 @@ export function AdminSidebar() {
     <aside className="w-64 shrink-0 border-r border-border bg-white">
       <div className="flex h-full flex-col">
         <div className="border-b border-border p-4">
-          <h2 className="text-sm font-semibold text-navy uppercase tracking-wider">
-            Admin Panel
-          </h2>
+          <Link href="/admin" className="flex items-center gap-2">
+            <Image
+              src="/tecc-logo.png"
+              alt="TECC"
+              width={80}
+              height={28}
+              className="h-7 w-auto"
+            />
+            <span className="text-xs font-semibold text-navy/50 uppercase tracking-wider">
+              Admin
+            </span>
+          </Link>
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {navItems.map((item) => {

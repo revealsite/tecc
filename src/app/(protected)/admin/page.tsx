@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { NewsletterTable } from "@/components/admin/newsletter-table";
 import { Button } from "@/components/ui/button";
+import { ReindexAllButton } from "@/components/admin/reindex-button";
 import type { Newsletter } from "@/lib/types";
 
 export default async function AdminPage() {
@@ -22,9 +23,12 @@ export default async function AdminPage() {
             Manage your newsletter archive
           </p>
         </div>
-        <Link href="/admin/new">
-          <Button>Add Newsletter</Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <ReindexAllButton />
+          <Link href="/admin/new">
+            <Button>Add Newsletter</Button>
+          </Link>
+        </div>
       </div>
 
       <NewsletterTable newsletters={(newsletters as Newsletter[]) ?? []} />
